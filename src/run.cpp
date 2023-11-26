@@ -228,7 +228,7 @@ int Run::run()
 		// This is the actual benchmark
 		// std::cout << "Iterations: " << this->exp->iterations << std::endl;
 		for (int i = 0; i < this->exp->iterations; i++)
-
+		{
 			if (PERF_TEST)
 			{
 
@@ -294,9 +294,9 @@ int Run::run()
 			}
 			else
 			{
-				bench((const Chain **)root);
+				new_chase_pointers((const Chain **)root);
 			}
-
+		}
 		// barrier
 		this->bp->barrier();
 
@@ -515,6 +515,45 @@ Run::reverse_mem_init(Chain *mem)
 	return root;
 }
 
+void Run::new_chase_pointers(const Chain **mm)
+{
+	std::vector<Chain *> heads(this->exp->chains_per_thread);
+
+	// initialize the heads
+	for (int i = 0; i < this->exp->chains_per_thread; i++)
+	{
+		heads[i] = (Chain *)mm[i];
+	}
+
+	// mark current position
+	std::vector<Chain *> positions(this->exp->chains_per_thread);
+	for (int i = 0; i < this->exp->chains_per_thread; i++)
+	{
+		positions[i] = heads[i];
+	}
+
+	// chase pointers
+	while (true)
+	{
+		for (int i = 0; i < this->exp->chains_per_thread; i++)
+		{
+			positions[i] = positions[i]->next;
+		}
+
+		// test if end reached
+		// all chains are  same length
+		// so only need to test one
+		if (heads[0] == positions[0])
+		{
+			break;
+		}
+	}
+
+	return;
+
+}
+
+// decrapated in this version
 static benchmark chase_pointers(int64 chains_per_thread, // memory loading per thread
 								int64 bytes_per_line,	 // ignored
 								int64 bytes_per_chain,	 // ignored
