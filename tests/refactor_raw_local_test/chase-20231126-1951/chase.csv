@@ -1,0 +1,11 @@
+pointer size (bytes),cache line size (bytes),page size (bytes),chain size (bytes),thread size (bytes),test size (bytes),chains per thread,number of threads,iterations,loop length,prefetch hint,experiments,access pattern,stride,numa placement,offset or mask,numa domains,domain map,operations per chain,total operations,elapsed time (seconds),elapsed time (timer ticks),clock resolution (ns),memory latency (ns),memory bandwidth (MB/s)
+8,64,4096,8192,8192,8192,1,1,6567443,0,none,1,random,1,local,0,1,"0:0",128,128,1.027,85438152,12.02,1.22,52390.270
+8,64,4096,8192,8192,8192,1,1,6411054,0,none,1,forward,1,local,0,1,"0:0",128,128,0.964,96262789,10.02,1.18,54467.245
+8,64,4096,16384,16384,16384,1,1,2957308,0,none,1,random,1,local,0,1,"0:0",256,256,0.905,90310154,10.02,1.19,53566.568
+8,64,4096,16384,16384,16384,1,1,2974301,0,none,1,forward,1,local,0,1,"0:0",256,256,0.998,99651181,10.02,1.31,48819.899
+8,64,4096,65536,65536,65536,1,1,298807,0,none,1,random,1,local,0,1,"0:0",1024,1024,0.945,78647562,12.02,3.09,20715.798
+8,64,4096,65536,65536,65536,1,1,347021,0,none,1,forward,1,local,0,1,"0:0",1024,1024,0.784,75278321,10.42,2.21,29002.595
+8,64,4096,262144,262144,262144,1,1,75493,0,none,1,random,1,local,0,1,"0:0",4096,4096,0.978,78731259,12.42,3.16,20238.009
+8,64,4096,262144,262144,262144,1,1,80314,0,none,1,forward,1,local,0,1,"0:0",4096,4096,0.848,81447042,10.42,2.58,24814.640
+8,64,4096,524288,524288,524288,1,1,39361,0,none,1,random,1,local,0,1,"0:0",8192,8192,1.000,99806040,10.02,3.10,20642.091
+8,64,4096,524288,524288,524288,1,1,50585,0,none,1,forward,1,local,0,1,"0:0",8192,8192,0.982,98030913,10.02,2.37,27010.503
