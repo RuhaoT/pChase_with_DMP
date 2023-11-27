@@ -34,7 +34,7 @@
 #endif
 
 // Local includes
-#include <AsmJit/AsmJit.h>
+#include <asmjit/x86.h>
 // #include <perf/jitdump.h> //perf depend on asmjit, must first include asmjit
 // #include <perf/perfcompiler.h>
 #include "timer.h"
@@ -228,74 +228,9 @@ int Run::run()
 		// This is the actual benchmark
 		// std::cout << "Iterations: " << this->exp->iterations << std::endl;
 		for (int i = 0; i < this->exp->iterations; i++)
-
-			if (PERF_TEST)
-			{
-
-				// perf record
-				// step 1: get thread tid
-				pid_t thread_id = syscall(SYS_gettid);
-
-				// step 2: start perf
-				std::string str1 = "eval \"perf record -e --call-graph dwarf -g -t ";
-				std::string str2 = std::to_string(thread_id);
-				// NOTE:because the use of '-o' option, perf will no longer generate symbol map to /tmp/perf-<pid>.map
-				// have to generate the map file manually
-				// this should be done in shell script
-				std::string str3 = " -o ./perf_";
-				std::string str4 = std::to_string(this->thread_id());
-				std::string str5 = "_";
-				std::string str6 = std::to_string(num_perf_data++);
-				std::string str7 = ".data \" & echo $!";
-				std::string str = str1 + str2 + str3 + str4 + str5 + str6 + str7;
-
-				pid_t perf_pid = -1;
-
-				// starting perf while obtaining its pid
-				std::cout << str.c_str() << std::endl;
-				FILE *fp = popen(str.c_str(), "r");
-				// std::cout << "Executed perf..." << std::endl;
-				if (fp == NULL)
-				{
-					std::cout << "Failed to execute perf" << std::endl;
-					pthread_exit(NULL);
-				}
-				else
-				{
-					char buf[1024];
-					if (fgets(buf, 1024, fp) != NULL)
-					{
-						perf_pid = atoi(buf);
-					}
-					pclose(fp);
-					std::cout << "Started perf with pid " << perf_pid << std::endl;
-				}
-				// prepair the command to stop perf while perf is staring to reduce inaccuracy
-				// MUST use kill -INT or else perf.data will be corrupted
-				str1 = "kill -INT ";
-				str2 = std::to_string(perf_pid);
-				std::string command = str1 + str2;
-
-				// step 3: run benchmark
-				// sleep enough time for perf to start
-				if (DO_BECHMARK)
-				{
-					sleep(2);
-					bench((const Chain **)root);
-				}
-				else
-				{
-					sleep(2);
-				}
-
-				// step 4: stop perf
-				system(command.c_str());
-				std::cout << "Stopped perf with pid " << str2 << std::endl;
-			}
-			else
-			{
+		{
 				bench((const Chain **)root);
-			}
+		}
 
 		// barrier
 		this->bp->barrier();
@@ -523,6 +458,106 @@ static benchmark chase_pointers(int64 chains_per_thread, // memory loading per t
 								int32 prefetch_hint		 // use of prefetching
 )
 {
+	// initialize JIT runtime
+	asmjit::JitRuntime rt;
+	asmjit::CodeHolder code;
+
+	// initialize code holder
+	code.init(rt.environment());
+	code.init(rt.codeInfo());
+
+	// Create Compiler.
+	asmjit::x86::Compiler cc(&code);
+
+	// Tell compiler the function prototype we want. It allocates variables representing
+	// function arguments that can be accessed through Compiler or Function instance.
+	asmjit::FuncNode* fn = cc.addFunc(
+		asmjit::FuncSignatureT<void, // return type
+		 const Chain **>()); // arguments
+	// refactor line above with lastest version of asmjit(done)
+
+	// TODO:
+	// Try to generate function without prolog/epilog code:
+
+	// Create labels.
+	asmjit::Label L_Loop = cc.newLabel();
+
+	// create variable to store chain pointer
+	asmjit::x86::Gp chain = cc.newGpd();
+
+	// map the chain pointer to the first argument
+	cc.setArg(0, chain);
+
+	// Save the heads
+	// create a vector with type of virtual register
+	std::vector<asmjit::x86::Gp> heads(chains_per_thread);
+	for (int i = 0; i < chains_per_thread; i++)
+	{
+		// create a temporary virtual register
+		asmjit::x86::Gp head = cc.newGpd();
+		// move the ith chain pointer to the temporary virtual register
+		cc.mov(head, ptr(chain, i * sizeof(Chain *)));
+		// store the temporary virtual register to the vector
+		heads[i] = head;
+	}
+
+	// Current position
+	std::vector<asmjit::x86::Gp> positions(chains_per_thread);
+	for (int i = 0; i < chains_per_thread; i++)
+	{
+		asmjit::x86::Gp position = cc.newGpd();
+		cc.mov(position, heads[i]);
+		positions[i] = position;
+	}
+
+	// Loop.
+	cc.bind(L_Loop);
+
+	// Process all links
+	for (int i = 0; i < chains_per_thread; i++)
+	{
+		// Chase pointer
+		cc.mov(positions[i], ptr(positions[i], offsetof(Chain, next)));
+	}
+
+	// Wait
+	// wait for the prefetches to complete
+	for (int i = 0; i < loop_length; i++)
+		cc.nop();
+
+	// Test if end reached
+	// equal means that the chain is finished
+	cc.cmp(heads[0], positions[0]);
+	cc.jne(L_Loop);
+
+	// Finish.
+	cc.endFunc();
+
+	// Make JIT function.
+	cc.finalize();
+
+	benchmark generated_fn;
+	asmjit::Error err = rt.add(&generated_fn, &code);
+
+	// Ensure that everything is ok.
+	if (err)
+	{
+		printf("Error making jit function (%u).\n", err);
+		return 0;
+	}
+
+	return generated_fn;
+}
+
+//WARNING:deprecated, never use this function
+/* static benchmark chase_pointers_deprecated(int64 chains_per_thread, // memory loading per thread
+								int64 bytes_per_line,	 // ignored
+								int64 bytes_per_chain,	 // ignored
+								int64 stride,			 // ignored
+								int64 loop_length,		 // length of the inner loop
+								int32 prefetch_hint		 // use of prefetching
+)
+{
 	// NOTE: because of the poor support of perf to profile JIT code, the code is modified to include jitdump
 	// the jitdump class will create symbol map file for perf to use
 	// Create Compiler.
@@ -616,3 +651,4 @@ static benchmark chase_pointers(int64 chains_per_thread, // memory loading per t
 
 	return fn;
 }
+ */
