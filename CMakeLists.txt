@@ -18,8 +18,8 @@ find_package(Threads)
 find_library(LIBNUMA numa)
 option(USE_LIBNUMA "Build against NUMA libraries" ON) 
 
-include_directories(lib)
-add_subdirectory(lib/AsmJit)
+# include_directories(lib)
+# add_subdirectory(lib/AsmJit)
 
 
 #
@@ -51,7 +51,8 @@ if (USE_LIBNUMA)
 		message(STATUS "WARNING: libnuma not found, not compiling against it")
 	endif ()
 endif ()
-target_link_libraries(chase AsmJit)
+# target_link_libraries(chase AsmJit)
+target_link_libraries(chase)
 
 # for profiling JIT code
 # target_link_libraries(chase perf)
