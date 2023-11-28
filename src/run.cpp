@@ -34,7 +34,7 @@
 #endif
 
 // Local includes
-#include <AsmJit/AsmJit.h>
+// #include <AsmJit/AsmJit.h>
 // #include <perf/jitdump.h> //perf depend on asmjit, must first include asmjit
 // #include <perf/perfcompiler.h>
 #include "timer.h"
@@ -47,9 +47,9 @@ typedef void (*benchmark)(const Chain **);
 typedef benchmark (*generator)(int64 chains_per_thread,
 							   int64 bytes_per_line, int64 bytes_per_chain,
 							   int64 stride, int64 loop_length, int32 prefetch_hint);
-static benchmark chase_pointers(int64 chains_per_thread,
+/* static benchmark chase_pointers(int64 chains_per_thread,
 								int64 bytes_per_line, int64 bytes_per_chain,
-								int64 stride, int64 loop_length, int32 prefetch_hint);
+								int64 stride, int64 loop_length, int32 prefetch_hint); */
 
 Lock Run::global_mutex;
 int64 Run::_ops_per_chain = 0;
@@ -116,7 +116,7 @@ int Run::run()
 		if (this->exp->access_pattern == Experiment::RANDOM)
 		{
 			root[i] = random_mem_init(chain_memory[i]);
-			gen = chase_pointers;
+			//gen = chase_pointers;
 		}
 		else if (this->exp->access_pattern == Experiment::STRIDED)
 		{
@@ -128,7 +128,7 @@ int Run::run()
 			{
 				root[i] = reverse_mem_init(chain_memory[i]);
 			}
-			gen = chase_pointers;
+			//gen = chase_pointers;
 		}
 	}
 
@@ -554,7 +554,7 @@ void Run::new_chase_pointers(const Chain **mm)
 }
 
 // decrapated in this version
-static benchmark chase_pointers(int64 chains_per_thread, // memory loading per thread
+/* static benchmark chase_pointers(int64 chains_per_thread, // memory loading per thread
 								int64 bytes_per_line,	 // ignored
 								int64 bytes_per_chain,	 // ignored
 								int64 stride,			 // ignored
@@ -655,3 +655,4 @@ static benchmark chase_pointers(int64 chains_per_thread, // memory loading per t
 
 	return fn;
 }
+ */
