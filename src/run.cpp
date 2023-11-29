@@ -76,6 +76,8 @@ int Run::run()
 	// intended numa domains
 	Chain **chain_memory = new Chain *[this->exp->chains_per_thread];
 	Chain **root = new Chain *[this->exp->chains_per_thread];
+	std::vector<const Chain *> input_head(this->exp->chains_per_thread);
+	std::vector<const Chain *> input_position(this->exp->chains_per_thread);
 
 #if defined(NUMA)
 	// establish the node id where this thread
@@ -110,13 +112,13 @@ int Run::run()
 	// initialize the chains and
 	// select the function that
 	// will generate the tests
-	generator gen;
+	//generator gen;
 	for (int i = 0; i < this->exp->chains_per_thread; i++)
 	{
 		if (this->exp->access_pattern == Experiment::RANDOM)
 		{
 			root[i] = random_mem_init(chain_memory[i]);
-			//gen = chase_pointers;
+			// gen = chase_pointers;
 		}
 		else if (this->exp->access_pattern == Experiment::STRIDED)
 		{
@@ -128,16 +130,16 @@ int Run::run()
 			{
 				root[i] = reverse_mem_init(chain_memory[i]);
 			}
-			//gen = chase_pointers;
+			// gen = chase_pointers;
 		}
 	}
 
 	// compile benchmark
 	// bench is a function that will chase pointers
-	benchmark bench = gen(this->exp->chains_per_thread,
+/* 	benchmark bench = gen(this->exp->chains_per_thread,
 						  this->exp->bytes_per_line, this->exp->bytes_per_chain,
 						  this->exp->stride, this->exp->loop_length,
-						  this->exp->prefetch_hint);
+						  this->exp->prefetch_hint); */
 
 	// calculate the number of iterations
 	/*
@@ -158,6 +160,8 @@ int Run::run()
 		{
 			// barrier
 			// ensures all threads start at the same time
+
+			init_chase_pointers((const Chain **)root, input_head, input_position);
 			this->bp->barrier();
 
 			// start timer
@@ -176,7 +180,7 @@ int Run::run()
 				{
 					sleep(2);
 				}
-				bench((const Chain **)root);
+				new_chase_pointers((const Chain **)root, input_head, input_position);
 			}
 
 			// barrier
@@ -216,6 +220,8 @@ int Run::run()
 	{
 		// std::cout << "Running experiment " << e << std::endl;
 		// barrier
+
+		init_chase_pointers((const Chain **)root, input_head, input_position);
 		this->bp->barrier();
 
 		// start timer
@@ -281,7 +287,7 @@ int Run::run()
 				if (DO_BECHMARK)
 				{
 					sleep(2);
-					bench((const Chain **)root);
+					new_chase_pointers((const Chain **)root, input_head, input_position);
 				}
 				else
 				{
@@ -294,7 +300,7 @@ int Run::run()
 			}
 			else
 			{
-				new_chase_pointers((const Chain **)root);
+				new_chase_pointers((const Chain **)root, input_head, input_position);
 			}
 		}
 		// barrier
@@ -515,35 +521,41 @@ Run::reverse_mem_init(Chain *mem)
 	return root;
 }
 
-void Run::new_chase_pointers(const Chain **mm)
+void Run::init_chase_pointers(const Chain **mm, std::vector<const Chain *> &input_head, std:: vector<const Chain *> &input_position)
 {
-	std::vector<Chain *> heads(this->exp->chains_per_thread);
+	int64 chain_num = this->exp->chains_per_thread;
 
 	// initialize the heads
-	for (int i = 0; i < this->exp->chains_per_thread; i++)
+	for (int i = 0; i < chain_num; i++)
 	{
-		heads[i] = (Chain *)mm[i];
+		input_head[i] = mm[0];
 	}
 
 	// mark current position
-	std::vector<Chain *> positions(this->exp->chains_per_thread);
-	for (int i = 0; i < this->exp->chains_per_thread; i++)
+	for (int i = 0; i < chain_num; i++)
 	{
-		positions[i] = heads[i];
+		input_position[i] = input_head[i];
 	}
+	return ;
+}
+
+void Run::new_chase_pointers(const Chain **mm, std::vector<const Chain *> &input_head, std:: vector<const Chain *> &input_position)
+{
+	int64 chain_num = this->exp->chains_per_thread;
+
 
 	// chase pointers
 	while (true)
 	{
-		for (int i = 0; i < this->exp->chains_per_thread; i++)
+		for (int i = 0; i < chain_num; i++)
 		{
-			positions[i] = positions[i]->next;
+			// chase pointer
+			input_position[i] = input_position[i]->next;
 		}
-
 		// test if end reached
 		// all chains are  same length
 		// so only need to test one
-		if (heads[0] == positions[0])
+		if (input_head[0] == input_position[0])
 		{
 			break;
 		}

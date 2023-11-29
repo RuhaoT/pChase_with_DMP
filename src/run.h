@@ -57,7 +57,8 @@ private:
 	Chain* random_mem_init(Chain *m);
 	Chain* forward_mem_init(Chain *m);
 	Chain* reverse_mem_init(Chain *m);
-	void new_chase_pointers(const Chain **mm);
+	void new_chase_pointers(const Chain **mm, std::vector<const Chain *> &input_head, std:: vector<const Chain *> &input_position);
+	void init_chase_pointers(const Chain **mm, std::vector<const Chain *> &input_head, std:: vector<const Chain *> &input_position);
 
 	static Lock global_mutex; // global lock
 	static int64 _ops_per_chain; // total number of operations per chain
